@@ -7,6 +7,7 @@ const upstream='https://data-scrap-poetry.super-giant-1444.chatgpt.site';
 const timings=[], checks=[];
 const report={environment:process.env.GITHUB_ACTIONS?'GitHub-hosted Linux runner':'local Mac',startedAt:new Date().toISOString(),checks};
 const hash=text=>createHash('sha256').update(text).digest('hex');
+const applicationContent=text=>text.replace(/<script>[\s\S]*?<\/script>/g,script=>script.includes('/cdn-cgi/challenge-platform/')&&script.includes('__CF$cv$params')?'':script);
 const mark=(name,details={})=>{checks.push({name,status:'pass',...details});console.log(JSON.stringify(checks.at(-1)));};
 async function call(path,body,token,expected=200){
   const start=performance.now();
@@ -21,7 +22,7 @@ try{
   for(const path of ['/workshop','/space','/client/app.js','/client/html-lab.js','/client/space/main.js']){
     const [a,b]=await Promise.all([fetch(base+path),fetch(upstream+path)]);
     assert.equal(a.status,200);assert.equal(b.status,200);
-    assert.equal(hash(await a.text()),hash(await b.text()),`Different content at ${path}`);
+    assert.equal(hash(applicationContent(await a.text())),hash(applicationContent(await b.text())),`Different application content at ${path}`);
   }
   mark('HTML and key client modules match the original site');
   if(process.env.PROBE_ROOM){
