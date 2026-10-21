@@ -1,0 +1,26 @@
+name: Workshop readiness from an external network
+on:
+  push:
+    branches: [workshop-readiness]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify public access and 20 participant sessions
+        run: node qa/live-check.mjs
+        env:
+          PROBE_ROOM: FMLQJY28XS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workshop-readiness
+          path: readiness-result.json
+          retention-days: 7
