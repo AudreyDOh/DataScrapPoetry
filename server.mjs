@@ -45,7 +45,7 @@ export function workshopServer({apiOrigin=process.env.WORKSHOP_API_ORIGIN || def
         return res.end();
       }
       if (!['GET','HEAD'].includes(req.method)) return json(res, 405, {error:'Method not allowed.'});
-      const aliases = {'/':'workshop.html','/workshop':'workshop.html','/space':'space.html'};
+      const aliases = {'/':'workshop.html','/workshop':'workshop.html','/space':'space.html','/facilitator':'facilitator.html'};
       const pathname = decodeURIComponent(url.pathname);
       const path = resolve(publicDir, aliases[pathname] || '.' + pathname);
       if (!path.startsWith(publicDir.endsWith(sep) ? publicDir : publicDir + sep) || !(await stat(path).catch(() => null))?.isFile()) return json(res, 404, {error:'Not found.'});

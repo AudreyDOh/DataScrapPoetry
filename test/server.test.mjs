@@ -14,7 +14,7 @@ async function serverFor(t, options) {
 }
 test('both pages and their modules are served; nonpublic files are not', async t => {
   const base = await serverFor(t);
-  for (const path of ['/','/workshop','/space?gallery=existing','/client/space/screenshot.js','/vendor/html-to-image.js']) assert.equal((await fetch(base+path)).status, 200, path);
+  for (const path of ['/','/workshop','/space?gallery=existing','/facilitator?room=8212026','/client/facilitator.js','/client/space/screenshot.js','/vendor/html-to-image.js']) assert.equal((await fetch(base+path)).status, 200, path);
   for (const path of ['/server.mjs','/package.json','/.env','/%2e%2e%2fserver.mjs']) assert.equal((await fetch(base+path)).status, 404, path);
 });
 test('participant auth, request and response survive the fixed backend proxy', async t => {

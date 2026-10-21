@@ -442,42 +442,21 @@ Endpoints stay attached to words. Pages move only when the viewer drags them.
 This is an iterative, finite-resolution simulation: it is not an exact knot solver.
 Very fast motion and dense tangles can still produce contact inaccuracies.
 
-### Showing and saving the work (host only)
+### Showing and saving the work (facilitator only)
 
-“Your screen is for collecting words, sharing them, and writing. I can open our
-pages and poems together in a separate Visualization window.”
+“Your workshop page is just for collecting, writing and sharing. I use a separate facilitator page to read our saved poems and show the connections.”
 
-The room supports ten people, including its creator. Only the creator sees
-**Visualization**, **Download visualization**, and **Download & new room**.
-Participant sessions cannot open the room visualization or export through the API.
-The extracted-text limit is now **100,000 characters per import**. Duplicate palette
-words are stored once, preserving the first occurrence's source position.
+Open the private **Facilitator** page. Select the room code to see every participant's current poem and source text. **Refresh** loads the latest saved work. **Open visualization** opens the pages and threads; arranging the pages does not alter anyone's poem.
 
-```js
-const seen = new Set();
-const unique = blocks.filter(block => {
-  const spelling = block.text.toLowerCase().replace('’', "'");
-  if (block.category === 'punctuation' || seen.has(spelling)) return false;
-  seen.add(spelling);
-  return true; // Keep its original sourceId and start offset.
-});
-```
+For storage and archiving:
 
-“At the end, I download a visualization file containing our source-page layouts,
-source text, poems, and word paths. Then I can start a clean room.”
+1. Choose **Download visualization** for the room. Save its JSON file locally.
+2. Use **Open archive** to reopen that file entirely in the browser. It retains the source texts, saved page layouts, poems and original word connections, without participant access credentials or unused word palettes. External images/fonts still depend on their hosts.
+3. When ready to clear server storage, choose **Delete room**. Download the current archive, confirm that you saved it, and type the room code. Only then press **Delete room**. If someone edited after the download, export again before deleting.
+4. Create a new room on the workshop entry screen when the next workshop begins. Opening a different room never deletes an existing room automatically.
 
-1. Choose **Download & new room**. Downloading pauses editing so the file and the
-   final room state agree.
-2. Save the JSON file and check **I saved the visualization file**.
-3. Choose **Delete old room & start new**. This deletes that room's working data,
-   page captures, and old published view. Other rooms stay intact. Cancel resumes
-   the current room instead.
-4. Open **Visualization → Open archive** to load the saved file later. It is read
-   locally in the browser. No room membership or server copy is required.
+**Save access link** stores the facilitator's private access link. Keep it separate from the participant invitation link; it opens all retained workshop rooms. The portal includes expired rooms whose records have not been deleted. Previously deleted rooms can only be opened from a downloaded archive.
 
-The archive excludes session credentials and unused word blocks. It preserves
-original word positions so borrowing still connects to the donor's page. Images
-and fonts are referenced by URL; the file does not embed all external assets.
 
 ### Importing a website as a transparent page
 

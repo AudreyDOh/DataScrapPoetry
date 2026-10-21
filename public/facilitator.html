@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Data-Scrap-Poetry · Facilitator</title><link rel="stylesheet" href="/facilitator.css">
+<body>
+<header><h1>Facilitator</h1><nav><a href="/space?archive" target="_blank" rel="noopener">Open archive</a><button id="save-access" hidden>Save access link</button><button id="lock" hidden>Lock</button></nav></header>
+<p id="status" role="status"></p>
+<form id="unlock"><label>Access key<input id="access-key" type="password" autocomplete="off" required></label><button>Open</button></form>
+<main id="dashboard" hidden>
+  <aside><div class="toolbar"><h2>Rooms</h2><button id="refresh">Refresh</button></div><form id="find-room"><label>Room code<input id="room-code" maxlength="10" required autocomplete="off"></label><button>Open room</button></form><div id="rooms"></div><button id="more" hidden>Load more</button></aside>
+  <section id="room" hidden><div class="toolbar"><div><h2 id="room-title"></h2><p id="room-meta"></p></div><div class="actions"><a id="visualize">Open visualization</a><button id="download">Download visualization</button><button id="delete" class="danger">Delete room</button></div></div><div id="participants"></div></section>
+  <p id="empty">Choose a room.</p>
+</main>
+<dialog id="delete-dialog"><h2>Delete room <span id="delete-code"></span>?</h2><p>This permanently deletes this room’s participants, words, poems and saved pages.</p><button id="backup">Download visualization</button><label class="check"><input id="backup-saved" type="checkbox" disabled>I saved the downloaded file.</label><label>Type the room code<input id="confirm-code" autocomplete="off"></label><p id="delete-status" role="status"></p><div class="actions"><button id="confirm-delete" class="danger" disabled>Delete room</button><button id="cancel-delete">Cancel</button></div></dialog>
+<script type="module" src="/client/facilitator.js"></script></body></html>

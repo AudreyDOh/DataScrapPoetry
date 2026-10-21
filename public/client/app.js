@@ -4,7 +4,7 @@ import { setupHtmlLab } from './html-lab.js';
 import { createId } from './id.js';
 const $=id=>document.getElementById(id);
 const storageKey='poetry-online-session';
-let session=null,room=null,isHost=false,collectionId=null,syncing=false,restartRevision=null,restartBusy=false,revision=-1,line=0,filter='all',sharing=false,pending=false,pendingInput=null,timer,search='',selectedWord=null,dragging=false,ignoreClickUntil=0;
+let session=null,room=null,isHost=false,collectionId=null,syncing=false,revision=-1,line=0,filter='all',sharing=false,pending=false,pendingInput=null,timer,search='',selectedWord=null,dragging=false,ignoreClickUntil=0;
 function message(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(timer);timer=setTimeout(()=>$('toast').classList.remove('show'),3000);}
 function status(text){$('connection').textContent=text;}
 async function request(path,{method='GET',body,token=session?.token}={}){
@@ -51,7 +51,7 @@ function paintPending(){
   $('saved').textContent='Saving…';
 }
 async function sync(){
-  if(!session||pending||syncing||restartBusy||dragging||document.hidden)return;const code=session.code;syncing=true;
+  if(!session||pending||syncing||dragging||document.hidden)return;const code=session.code;syncing=true;
   try{const result=await request(`rooms/${code}?since=${revision}${collectionId?'&collection='+encodeURIComponent(collectionId):''}`);if(session?.code===code)accept(result);}
   catch(e){if(e.status===404||e.status===401){leaveRoom();$('entry-error').textContent=e.status===404?'This room has closed. Use the new room link.':'Rejoin this room.';}else status('Reconnecting…');}
   finally{syncing=false;}
@@ -134,7 +134,6 @@ function dropData(e){e.preventDefault();try{return JSON.parse(e.dataTransfer.get
 function render(){
   const id=session.participantId,own=room.blocks.filter(b=>b.ownerId===id&&!b.archivedFromCollection);
   $('room-info').textContent=`${session.code} · ${name(id)} · ${room.participants.length}/${room.capacity||10}`;
-  $('space-view').hidden=!isHost;$('new-room').hidden=!isHost;$('export').hidden=!isHost;$('space-view').href=`/space?room=${session.code}`;
   document.querySelector('.workspace').classList.toggle('workshop-closed',room.closing&&!isHost);
   document.querySelector('.html-lab').classList.toggle('workshop-closed',room.closing);
   $('saved').textContent='Saved ✓';$('count').textContent=`${uniqueWords(own).length} WORDS`;
@@ -174,28 +173,6 @@ $('addline').onclick=()=>action({action:'line'});
 $('split-line').onclick=splitSelected;
 $('undo').onclick=()=>{const word=selected();if(word){selectedWord=null;action({action:'remove',line:word.row,index:word.index,blockId:word.id});}else{const ids=poem().lines[line];if(ids.length)action({action:'remove',line,index:ids.length-1,blockId:ids.at(-1)});}};
 $('drop').onclick=()=>{sharing=!sharing;render();};$('drop').ondragover=e=>{e.preventDefault();$('drop').classList.add('drop-active');};$('drop').ondragleave=e=>{if(!$('drop').contains(e.relatedTarget))clearMarker();};$('drop').ondrop=e=>{clearMarker();const data=dropData(e);if(data&&!data.offerId)action({action:'throw',blockId:data.id});};
-function downloadArchive(data){const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`visualization-${session.code}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-$('export').onclick=async()=>{try{downloadArchive(await request(`rooms/${session.code}/export`));}catch(e){message(e.message);}};
-$('new-room').onclick=()=>{if(pending||restartBusy)return;restartRevision=null;$('archive-saved').checked=false;$('archive-saved').disabled=true;$('restart-confirm').disabled=true;$('restart-status').textContent='';$('restart-dialog').showModal();};
-$('restart-download').onclick=async()=>{
-  if(restartBusy||pending)return;restartBusy=true;$('restart-download').disabled=true;
-  try{const frozen=await action({action:'prepare-reset'});if(!frozen)throw new Error('Could not prepare the download.');const archive=await request(`rooms/${session.code}/export`);downloadArchive(archive);restartRevision=archive.revision;$('archive-saved').disabled=false;$('restart-status').textContent='Save this file. It opens in Visualization → Open archive after the old room is deleted.';}
-  catch(e){$('restart-status').textContent=e.message;}finally{restartBusy=false;$('restart-download').disabled=false;}
-};
-$('archive-saved').onchange=()=>{$('restart-confirm').disabled=!$('archive-saved').checked||restartRevision===null;};
-async function cancelRestart(){if(restartBusy)return;if(room?.closing){const resumed=await action({action:'resume'});if(!resumed)return;}$('restart-dialog').close();}
-$('restart-cancel').onclick=cancelRestart;$('restart-dialog').addEventListener('cancel',e=>{e.preventDefault();cancelRestart();});
-$('restart-confirm').onclick=async()=>{
-  if(restartBusy||!$('archive-saved').checked||restartRevision===null)return;
-  restartBusy=true;$('restart-confirm').disabled=true;
-  const token=[...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('');const code='N'+crypto.randomUUID().replaceAll('-','').slice(0,9).toUpperCase();
-  const next={code,token};try{localStorage.setItem('poetry-pending-restart',JSON.stringify(next));}catch{}
-  try{
-    let result;try{result=await request(`rooms/${session.code}/restart`,{method:'POST',body:{code,token,revision:restartRevision}});}catch(error){try{result=await request(`rooms/${code}`,{token});}catch{throw error;}}
-    try{localStorage.removeItem('poetry-pending-restart');}catch{}
-    showRoom(result,token);lab.reset();history.replaceState(null,'',`/workshop?room=${code}`);$('restart-dialog').close();message('New room ready. Copy its link to invite participants.');
-  }catch(e){$('restart-status').textContent=e.message;}finally{restartBusy=false;$('restart-confirm').disabled=false;}
-};
 $('invite').onclick=async()=>{const url=new URL('/workshop',location.origin);url.searchParams.set('room',session.code);try{await navigator.clipboard.writeText(url.href);message('Link copied.');}catch{message(url.href);}};
 function leaveRoom(){session=null;room=null;collectionId=null;isHost=false;lab.reset();try{localStorage.removeItem(storageKey);}catch{}document.querySelector('main').hidden=true;document.querySelector('header').hidden=true;$('entry').hidden=false;}
 $('leave').onclick=leaveRoom;

@@ -1,3 +1,4 @@
+import {readAccess} from '../facilitator-access.js';
 import {readArchive} from './archive.js';
 import * as THREE from '../../vendor/three/three.module.js';
 import {CSS3DRenderer,CSS3DObject} from '../../vendor/three/CSS3DRenderer.js';
@@ -75,6 +76,7 @@ async function init(){
   }
   else if(params.has('demo')){data=await get('/examples/space.json');endpoint=null;$('view-kind').textContent='Sample pages';}
   else if(gallery){let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(session?.token)auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/galleries/${encodeURIComponent(gallery)}`;data=await get(endpoint);$('view-kind').textContent='Host visualization';}
+  else if(params.has('managed')){const key=readAccess();if(!key)throw new Error('Open this visualization from your facilitator page.');auth={Authorization:`Bearer ${key}`};endpoint=`/api/facilitator/rooms/${encodeURIComponent(params.get('managed'))}/view`;data=await get(endpoint);$('view-kind').textContent='Room '+params.get('managed');$('workshop-link').href='/facilitator?room='+encodeURIComponent(params.get('managed'));$('workshop-link').textContent='Facilitator';$('copy-view').hidden=true;}
   else {let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(!session||room&&session.code!==room)throw new Error('Open Visualization from the room creator’s workshop, or choose Open archive.');auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/rooms/${session.code}/view`;data=await get(endpoint);$('view-kind').textContent='Host visualization';$('copy-view').hidden=true;}
   if(!data.sources.length)throw new Error('Import HTML in the workshop to add your first page.');
   renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0x000000,0);$('stage').append(renderer.domElement);renderer.domElement.setAttribute('aria-label','3D pages. Drag pages to move them, drag empty space to orbit.');
