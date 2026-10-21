@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: datascrappoetry
+    runtime: node
+    plan: free
+    buildCommand: npm test
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: WORKSHOP_API_ORIGIN
+        value: https://data-scrap-poetry.super-giant-1444.chatgpt.site
