@@ -1,7 +1,8 @@
 import {validateLayout} from '../page-model.js';
 const words=/[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}]+)*/gu;
 const fontsLoaded=new Map();
-export async function buildLayoutSheet(source,input){
+export async function buildLayoutSheet(source,input,steps=[]){
+  const needed=new Set(steps.filter(s=>s.sourceId===source.id).map(s=>s.start));
   const snapshot=validateLayout(input),{width}=snapshot;let {height}=snapshot;
   const host=document.createElement('div');host.className='source-sheet';host.dataset.sourceId=source.id;host.style.width=`${width}px`;
   const shadow=host.attachShadow({mode:'open'}),style=document.createElement('style');
@@ -24,11 +25,11 @@ export async function buildLayoutSheet(source,input){
     surface.append(el);
   }
   const missing=[...source.text.matchAll(words)].filter(m=>!anchors.has(m.index));let extra;
-  if(missing.length){extra=document.createElement('div');extra.className='edited';extra.style.top=`${height+24}px`;const label=document.createElement('div');label.className='edited-label';label.textContent='Edited or hidden source words';extra.append(label);for(const m of missing){const el=document.createElement('span');el.className='wv-word';el.textContent=m[0];el.dataset.start=m.index;extra.append(el,' ');spans.set(m.index,el);}surface.append(extra);}
+  if(missing.length){extra=document.createElement('div');extra.className='edited';extra.style.top=`${height+24}px`;const label=document.createElement('div');label.className='edited-label';label.textContent='Edited or hidden source words';extra.append(label);let plain='';for(const m of missing){if(!needed.has(m.index)){plain+=m[0]+' ';continue;}if(plain){extra.append(document.createTextNode(plain));plain='';}const el=document.createElement('span');el.className='wv-word';el.textContent=m[0];el.dataset.start=m.index;extra.append(el,' ');spans.set(m.index,el);}if(plain)extra.append(document.createTextNode(plain));surface.append(extra);}
   document.getElementById('measure').append(host);
   // Font fallback cannot shift the recorded word endpoints or neighbouring words.
   for(const [el,item] of fitted){const actual=el.getBoundingClientRect().width;if(actual>0)el.style.transform=`scaleX(${item.w/actual})`;}
-  if(extra){const base=surface.getBoundingClientRect();height+=Math.ceil(extra.getBoundingClientRect().height)+60;for(const m of missing){const b=spans.get(m.index).getBoundingClientRect();anchors.set(m.index,{x:b.x-base.x+b.width/2,y:b.y-base.y+b.height/2});}}
+  if(extra){const base=surface.getBoundingClientRect();height+=Math.ceil(extra.getBoundingClientRect().height)+60;for(const m of missing){if(!spans.has(m.index))continue;const b=spans.get(m.index).getBoundingClientRect();anchors.set(m.index,{x:b.x-base.x+b.width/2,y:b.y-base.y+b.height/2});}}
   surface.style.height=`${height}px`;host.style.height=`${height}px`;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('paths');svg.setAttribute('viewBox',`0 0 ${width} ${height}`);surface.append(svg);
   return {element:host,shadow,width,height,anchors,spans,svg,source,snapshot};
