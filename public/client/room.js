@@ -44,7 +44,13 @@ export function addSource(room, ownerId, { title, url = null, method = 'paste', 
 // Replace only the active owner's collection. Referenced blocks remain available
 // to existing poems and exchanges; unreferenced old material is removed.
 export function replaceCollection(room, ownerId, input) {
-  const result = addSource(room, ownerId, input); // Validate before clearing anything.
+  return applyCollection(room, ownerId, addSource(room, ownerId, input));
+}
+
+export function applyCollection(room, ownerId, result) {
+  if (!room.sources.some(s => s.id === result.source.id)) {
+    room.sources.push(result.source); room.blocks.push(...result.blocks);
+  }
   const punctuationIds = new Set(result.blocks.filter(block => block.category === 'punctuation').map(block => block.id));
   result.blocks = result.blocks.filter(block => block.category !== 'punctuation');
   room.blocks = room.blocks.filter(block => !punctuationIds.has(block.id));
@@ -59,7 +65,7 @@ export function replaceCollection(room, ownerId, input) {
     if (referenced.has(block.id)) { block.archivedFromCollection = true; return true; }
     return false;
   });
-  const usedSources = new Set(room.blocks.map(b => b.sourceId));
+  const usedSources = new Set([...room.blocks.map(b => b.sourceId), ...Object.entries(room._collections||{}).filter(([id])=>id!==ownerId).map(([,sourceId])=>sourceId)]);
   room.sources = room.sources.filter(source => usedSources.has(source.id));
   return result;
 }

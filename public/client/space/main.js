@@ -1,3 +1,4 @@
+import {readArchive} from './archive.js';
 import * as THREE from '../../vendor/three/three.module.js';
 import {CSS3DRenderer,CSS3DObject} from '../../vendor/three/CSS3DRenderer.js';
 import {OrbitControls} from '../../vendor/three/OrbitControls.js';
@@ -6,7 +7,7 @@ import {buildSheet,decorateSheet,drawFlatPath} from './sheet.js';
 import {poemSteps} from '../space-data.js';
 import {captureView,downloadScreenshot} from './screenshot.js';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
-let data,endpoint,auth={},selected=null,selectedPoem=null,paused=matchMedia('(prefers-reduced-motion: reduce)').matches,drag=null,tracing=null,flatSheet=null,capturing=false;
+let data,endpoint,archivePages=null,auth={},selected=null,selectedPoem=null,paused=matchMedia('(prefers-reduced-motion: reduce)').matches,drag=null,tracing=null,flatSheet=null,capturing=false;
 const panels=[],snapshots=new Map(),bySource=new Map(),world=new RopeWorld({damping:.72,strandCollisions:true,collisionStrength:.18}),scene=new THREE.Scene(),cssScene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.05,250);
 let renderer,css,controls,raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),radius=5;
@@ -67,14 +68,19 @@ async function screenshot(){
 }
 async function init(){
   const gallery=params.get('gallery'),room=params.get('room');
-  if(params.has('demo')){data=await get('/examples/space.json');endpoint=null;$('view-kind').textContent='Sample pages';}
-  else if(gallery){endpoint=`/api/galleries/${encodeURIComponent(gallery)}`;data=await get(endpoint);$('view-kind').textContent='Public view';}
-  else {let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(!session||room&&session.code!==room)throw new Error('Open a public view link, or join your workshop first.');auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/rooms/${session.code}/view`;data=await get(endpoint);$('view-kind').textContent='Private preview';$('copy-view').hidden=true;}
+  if(params.has('archive')){
+    $('loading').hidden=true;$('archive-picker').hidden=false;$('view-kind').textContent='Saved visualization';
+    const archive=await new Promise(resolve=>{$('archive-file').onchange=async event=>{try{const file=event.target.files[0];if(!file)return;if(file.size>80000000)throw new Error('File exceeds 80 MB.');const value=readArchive(JSON.parse(await file.text()));resolve(value);}catch(error){$('archive-error').textContent=error.message;event.target.value='';}};});
+    data=archive.data;archivePages=archive.pages;endpoint=null;$('archive-picker').hidden=true;$('loading').hidden=false;
+  }
+  else if(params.has('demo')){data=await get('/examples/space.json');endpoint=null;$('view-kind').textContent='Sample pages';}
+  else if(gallery){let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(session?.token)auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/galleries/${encodeURIComponent(gallery)}`;data=await get(endpoint);$('view-kind').textContent='Host visualization';}
+  else {let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(!session||room&&session.code!==room)throw new Error('Open Visualization from the room creator’s workshop, or choose Open archive.');auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/rooms/${session.code}/view`;data=await get(endpoint);$('view-kind').textContent='Host visualization';$('copy-view').hidden=true;}
   if(!data.sources.length)throw new Error('Import HTML in the workshop to add your first page.');
   renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0x000000,0);$('stage').append(renderer.domElement);renderer.domElement.setAttribute('aria-label','3D pages. Drag pages to move them, drag empty space to orbit.');
   css=new CSS3DRenderer();css.setSize(innerWidth,innerHeight);$('stage').prepend(css.domElement);css.domElement.setAttribute('aria-hidden','true');
   controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.075;controls.minDistance=1.2;controls.maxDistance=100;controls.maxPolarAngle=Math.PI*.94;
-  for(const source of data.sources){$('loading').textContent=`Loading pages… ${panels.length+1}/${data.sources.length}`;const snapshot=endpoint&&source.pageId?await get(`${endpoint}/pages/${source.id}`):(source.snapshot||null);snapshots.set(source.id,snapshot);const sheet=await buildSheet(source,snapshot);const scale=Math.min(.004,7.5/sheet.height);const object=new CSS3DObject(sheet.element);object.scale.setScalar(scale);cssScene.add(object);const width=sheet.width*scale,height=sheet.height*scale;const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));mesh.userData.sourceId=source.id;const panel={id:source.id,source,sheet,object,mesh,width,height,scale,position:new THREE.Vector3(),quaternion:new THREE.Quaternion()};panels.push(panel);bySource.set(source.id,panel);const b=document.createElement('button');b.dataset.source=source.id;b.textContent=`${String(panels.length).padStart(2,'0')}  ${source.name}`;b.setAttribute('aria-pressed','false');b.onclick=()=>selectPanel(panel);b.ondblclick=()=>openDetail(panel);$('page-list').append(b);}
+  for(const source of data.sources){$('loading').textContent=`Loading pages… ${panels.length+1}/${data.sources.length}`;const snapshot=endpoint&&source.pageId?await get(`${endpoint}/pages/${source.id}`):(archivePages?.[source.id]||source.snapshot||null);snapshots.set(source.id,snapshot);const sheet=await buildSheet(source,snapshot);const scale=Math.min(.004,7.5/sheet.height);const object=new CSS3DObject(sheet.element);object.scale.setScalar(scale);cssScene.add(object);const width=sheet.width*scale,height=sheet.height*scale;const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));mesh.userData.sourceId=source.id;const panel={id:source.id,source,sheet,object,mesh,width,height,scale,position:new THREE.Vector3(),quaternion:new THREE.Quaternion()};panels.push(panel);bySource.set(source.id,panel);const b=document.createElement('button');b.dataset.source=source.id;b.textContent=`${String(panels.length).padStart(2,'0')}  ${source.name}`;b.setAttribute('aria-pressed','false');b.onclick=()=>selectPanel(panel);b.ondblclick=()=>openDetail(panel);$('page-list').append(b);}
   world.panels=panels;initialLayout();makeRopes();$('loading').hidden=true;
   renderer.domElement.addEventListener('pointerdown',beginDrag,true);renderer.domElement.addEventListener('pointermove',moveDrag);renderer.domElement.addEventListener('pointerup',endDrag);renderer.domElement.addEventListener('pointercancel',endDrag);renderer.domElement.addEventListener('dblclick',e=>{const panel=pick(e);if(panel)openDetail(panel);});
   $('reset').onclick=()=>{if(capturing)return;drag=null;initialLayout();makeRopes();clearSelection();};$('screenshot').onclick=screenshot;$('screenshot').disabled=false;

@@ -30,6 +30,7 @@ export function classifySource(source,blocks) {
   if(!entry || entry.text!==source.text){
     const terms=nlp(source.text).json({offset:true}).flatMap(sentence=>sentence.terms);
     entry={text:source.text,terms};cache.set(source.id,entry);
+    if(cache.size>12)cache.delete(cache.keys().next().value);
   }
   const terms=entry.terms;
   for(const block of blocks){

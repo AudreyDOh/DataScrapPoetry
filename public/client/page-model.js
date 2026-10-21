@@ -53,7 +53,7 @@ export function validateLayout(input){
   const items=input.items.flatMap(i=>{
     if(!i||!bounded(i.x,0,width)||!bounded(i.y,0,height)||!bounded(i.w,.1,20000)||!bounded(i.h,.1,20000))return [];
     const box={type:i.type,x:i.x,y:i.y,w:i.w,h:i.h};
-    if(i.type==='text'&&typeof i.text==='string'&&Number.isInteger(i.font)&&fonts[i.font]){characters+=i.text.length;if(characters>70000)throw new Error('Page text is too long.');const item={...box,text:i.text.slice(0,1000),font:i.font};if(Number.isInteger(i.start)&&i.start>=0&&i.start<18000&&!starts.has(i.start)){item.start=i.start;starts.add(i.start);}return [item];}
+    if(i.type==='text'&&typeof i.text==='string'&&Number.isInteger(i.font)&&fonts[i.font]){characters+=i.text.length;if(characters>70000)throw new Error('Page text is too long.');const item={...box,text:i.text.slice(0,1000),font:i.font};if(Number.isInteger(i.start)&&i.start>=0&&i.start<100000&&!starts.has(i.start)){item.start=i.start;starts.add(i.start);}return [item];}
     if(i.type==='image'&&imageURL(i.src))return [{...box,src:imageURL(i.src),alt:safeText(i.alt),fit:['cover','contain','fill','none','scale-down'].includes(i.fit)?i.fit:'fill',position:/^[\d.%\s-]+$/.test(i.position||'')?i.position:'50% 50%'}];
     return [];
   });

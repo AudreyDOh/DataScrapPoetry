@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 const publicDir = fileURLToPath(new URL('./public/', import.meta.url));
 const defaultApi = 'https://data-scrap-poetry.super-giant-1444.chatgpt.site';
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.ico':'image/x-icon'};
-const maxBody = 1500000;
+const maxBody = 2000000;
 function json(res, status, value) {res.writeHead(status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); res.end(JSON.stringify(value));}
 
 export function workshopServer({apiOrigin=process.env.WORKSHOP_API_ORIGIN || defaultApi, externalOrigin=process.env.RENDER_EXTERNAL_URL, fetcher=fetch} = {}) {

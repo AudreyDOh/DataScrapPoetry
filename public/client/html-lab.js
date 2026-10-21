@@ -14,7 +14,7 @@ export function setupHtmlLab(onImport,loadPage,loadStyle) {
   let edited = false, busy=false, cached=null;
   let updateTimer;
   const maxHtmlLength = 10000000;
-  const maxTextLength = 18000;
+  const maxTextLength = 100000;
   function stats() {
     const text = $('html-clean').value;
     const selected = document.querySelector('[data-tag]:checked');
@@ -23,7 +23,7 @@ export function setupHtmlLab(onImport,loadPage,loadStyle) {
     if ($('html-input').value.length > maxHtmlLength) label = 'HTML exceeds 10 million characters.';
     else if (!selected && !edited) label = 'Select Headings, Paragraphs, List items or Other text.';
     else if (!text.trim() && $('html-input').value.trim()) label = 'No text found in selected elements.';
-    else if (text.length > maxTextLength) label = `${text.length.toLocaleString('en')} characters · import limit: 18,000. Edit the extracted text.`;
+    else if (text.length > maxTextLength) label = `${text.length.toLocaleString('en')} characters · import limit: 100,000. Edit the extracted text.`;
     $('html-stats').textContent = label;
     $('html-import').disabled = busy || tokens.length === 0 || text.length > maxTextLength || $('html-input').value.length > maxHtmlLength;
   }
@@ -65,4 +65,5 @@ export function setupHtmlLab(onImport,loadPage,loadStyle) {
     }catch(e){notice=e.message||'Could not capture this page. Please try again.';}finally{lock(false);$('html-stats').textContent=notice;}
   };
   update();
+  return {reset(){cached=null;edited=false;$('source-url').value='';$('html-input').value='';update();}};
 }

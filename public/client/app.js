@@ -4,7 +4,7 @@ import { setupHtmlLab } from './html-lab.js';
 import { createId } from './id.js';
 const $=id=>document.getElementById(id);
 const storageKey='poetry-online-session';
-let session=null,room=null,revision=-1,line=0,filter='all',sharing=false,pending=false,pendingInput=null,timer,search='',selectedWord=null,dragging=false,ignoreClickUntil=0;
+let session=null,room=null,isHost=false,collectionId=null,syncing=false,restartRevision=null,restartBusy=false,revision=-1,line=0,filter='all',sharing=false,pending=false,pendingInput=null,timer,search='',selectedWord=null,dragging=false,ignoreClickUntil=0;
 function message(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(timer);timer=setTimeout(()=>$('toast').classList.remove('show'),3000);}
 function status(text){$('connection').textContent=text;}
 async function request(path,{method='GET',body,token=session?.token}={}){
@@ -14,11 +14,18 @@ async function request(path,{method='GET',body,token=session?.token}={}){
     const result=await response.json();if(!response.ok){const e=new Error(result.error||'Request failed.');e.status=response.status;throw e;}return result;
   }finally{clearTimeout(timeout);}
 }
-function accept(result){if(dragging||result.revision<revision)return;if(room&&result.revision===revision){status('Connected');return;}room=result.room;revision=result.revision;session.participantId=result.participantId;status('Connected');render();}
-function showRoom(result,token){session={code:result.code,token,participantId:result.participantId};revision=-1;try{localStorage.setItem(storageKey,JSON.stringify(session));}catch{message('Session will not survive a reload.');}$('entry').hidden=true;document.querySelector('main').hidden=false;document.querySelector('header').hidden=false;accept(result);}
+function accept(result){
+  if(dragging||result.revision<revision)return;
+  if(result.unchanged||(room&&result.revision===revision)){status(room?.closing?'Workshop ended':'Connected');return;}
+  const before=JSON.stringify([room?.poems,room?.offers,room?.participants,room?.closing,collectionId]);
+  if(result.collectionUnchanged&&collectionId===result.collectionId&&room){
+    const source=room.sources.find(s=>s.id===collectionId);if(source&&!result.room.sources.some(s=>s.id===collectionId))result.room.sources.push(source);const ids=new Set(result.room.blocks.map(b=>b.id));result.room.blocks.push(...room.blocks.filter(b=>b.ownerId===session.participantId&&b.sourceId===collectionId&&!b.archivedFromCollection&&!ids.has(b.id)));}
+  room=result.room;revision=result.revision;collectionId=result.collectionId;isHost=Boolean(result.isHost);session.participantId=result.participantId;status(room.closing?'Workshop ended':'Connected');if(result.collectionUnchanged&&before===JSON.stringify([room.poems,room.offers,room.participants,room.closing,collectionId]))return;render();
+}
+function showRoom(result,token){session={code:result.code,token,participantId:result.participantId};revision=-1;collectionId=null;isHost=false;room=null;line=0;search='';filter='all';selectedWord=null;$('word-search').value='';try{localStorage.setItem(storageKey,JSON.stringify(session));}catch{message('Session will not survive a reload.');}$('entry').hidden=true;document.querySelector('main').hidden=false;document.querySelector('header').hidden=false;accept(result);}
 async function action(input){
-  if(!session)return;if(pending){message('Saving… Try again.');return;}pending=true;pendingInput=input;status('Saving…');paintPending();
-  try{const result=await request(`rooms/${session.code}/actions`,{method:'POST',body:{...input,requestId:createId()}});accept(result);return result;}catch(e){status('Not saved');message(e.message);pending=false;await sync();}finally{pending=false;pendingInput=null;paintPending();$('saved').textContent=$('connection').textContent==='Connected'?'Saved ✓':'Not saved';}
+  if(!session)return;if(room?.closing&&!['resume','prepare-reset'].includes(input.action)){message('This workshop has ended. Wait for the new room link.');return;}if(pending){message('Saving… Try again.');return;}pending=true;pendingInput=input;status('Saving…');paintPending();
+  try{const result=await request(`rooms/${session.code}/actions`,{method:'POST',body:{...input,collectionId,requestId:createId()}});accept(result);return result;}catch(e){status('Not saved');message(e.message);pending=false;await sync();}finally{pending=false;pendingInput=null;paintPending();$('saved').textContent=['Connected','Workshop ended'].includes($('connection').textContent)?'Saved ✓':'Not saved';}
 }
 // A local placeholder acknowledges the exact drop immediately; the server
 // remains authoritative, so failed saves never leave a fictitious word behind.
@@ -43,7 +50,12 @@ function paintPending(){
   }
   $('saved').textContent='Saving…';
 }
-async function sync(){if(!session||pending)return;const code=session.code;try{const result=await request(`rooms/${code}`);if(session?.code===code)accept(result);}catch(e){status(e.status===401?'Session expired':'Reconnecting…');}}
+async function sync(){
+  if(!session||pending||syncing||restartBusy||dragging||document.hidden)return;const code=session.code;syncing=true;
+  try{const result=await request(`rooms/${code}?since=${revision}${collectionId?'&collection='+encodeURIComponent(collectionId):''}`);if(session?.code===code)accept(result);}
+  catch(e){if(e.status===404||e.status===401){leaveRoom();$('entry-error').textContent=e.status===404?'This room has closed. Use the new room link.':'Rejoin this room.';}else status('Reconnecting…');}
+  finally{syncing=false;}
+}
 function poem(){return room.poems.find(p=>p.authorId===session.participantId);}
 function name(id){return room.participants.find(p=>p.id===id)?.name||'Participant';}
 function selected(){
@@ -121,8 +133,10 @@ function token(block,inPoem=false,row=0,index=0,offer=null){
 function dropData(e){e.preventDefault();try{return JSON.parse(e.dataTransfer.getData('text/plain'));}catch{return null;}}
 function render(){
   const id=session.participantId,own=room.blocks.filter(b=>b.ownerId===id&&!b.archivedFromCollection);
-  $('room-info').textContent=`${session.code} · ${name(id)} · ${room.participants.length}/20`;
-  $('publish-view').hidden=room.participants[0]?.id!==id;$('publish-view').textContent=room.galleryId?'Update public view':'Publish view';$('space-view').href=room.galleryId?`/space?gallery=${room.galleryId}`:`/space?room=${session.code}`;
+  $('room-info').textContent=`${session.code} · ${name(id)} · ${room.participants.length}/${room.capacity||10}`;
+  $('space-view').hidden=!isHost;$('new-room').hidden=!isHost;$('export').hidden=!isHost;$('space-view').href=`/space?room=${session.code}`;
+  document.querySelector('.workspace').classList.toggle('workshop-closed',room.closing&&!isHost);
+  document.querySelector('.html-lab').classList.toggle('workshop-closed',room.closing);
   $('saved').textContent='Saved ✓';$('count').textContent=`${uniqueWords(own).length} WORDS`;
   $('filters').replaceChildren(...[['all','All'],...categories].map(([key,label])=>{const b=document.createElement('button');b.textContent=label;b.dataset.filter=key;b.className=filter===key?'active':'';b.setAttribute('aria-pressed',String(filter===key));return b;}));
   $('words').replaceChildren();
@@ -160,12 +174,34 @@ $('addline').onclick=()=>action({action:'line'});
 $('split-line').onclick=splitSelected;
 $('undo').onclick=()=>{const word=selected();if(word){selectedWord=null;action({action:'remove',line:word.row,index:word.index,blockId:word.id});}else{const ids=poem().lines[line];if(ids.length)action({action:'remove',line,index:ids.length-1,blockId:ids.at(-1)});}};
 $('drop').onclick=()=>{sharing=!sharing;render();};$('drop').ondragover=e=>{e.preventDefault();$('drop').classList.add('drop-active');};$('drop').ondragleave=e=>{if(!$('drop').contains(e.relatedTarget))clearMarker();};$('drop').ondrop=e=>{clearMarker();const data=dropData(e);if(data&&!data.offerId)action({action:'throw',blockId:data.id});};
-$('export').onclick=async()=>{try{const data=await request(`rooms/${session.code}/export`);const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`poems-${session.code}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){message(e.message);}};
-$('publish-view').onclick=async()=>{const result=await action({action:'publish'});if(result?.room.galleryId){$('space-view').href=`/space?gallery=${result.room.galleryId}`;message('Public view published. Open View to copy its link.');}};
-$('invite').onclick=async()=>{const url=new URL('/workshop.html',location.origin);url.searchParams.set('room',session.code);try{await navigator.clipboard.writeText(url.href);message('Link copied.');}catch{message(url.href);}};
-$('leave').onclick=()=>{session=null;room=null;try{localStorage.removeItem(storageKey);}catch{}document.querySelector('main').hidden=true;document.querySelector('header').hidden=true;$('entry').hidden=false;};
-setupHtmlLab(({text,page,url})=>{filter='all';search='';$('word-search').value='';return action({action:'import',method:'html',text,page,url});},url=>request(`rooms/${session.code}/fetch-page`,{method:'POST',body:{url}}),url=>request(`rooms/${session.code}/fetch-style`,{method:'POST',body:{url}}));
+function downloadArchive(data){const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`visualization-${session.code}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+$('export').onclick=async()=>{try{downloadArchive(await request(`rooms/${session.code}/export`));}catch(e){message(e.message);}};
+$('new-room').onclick=()=>{if(pending||restartBusy)return;restartRevision=null;$('archive-saved').checked=false;$('archive-saved').disabled=true;$('restart-confirm').disabled=true;$('restart-status').textContent='';$('restart-dialog').showModal();};
+$('restart-download').onclick=async()=>{
+  if(restartBusy||pending)return;restartBusy=true;$('restart-download').disabled=true;
+  try{const frozen=await action({action:'prepare-reset'});if(!frozen)throw new Error('Could not prepare the download.');const archive=await request(`rooms/${session.code}/export`);downloadArchive(archive);restartRevision=archive.revision;$('archive-saved').disabled=false;$('restart-status').textContent='Save this file. It opens in Visualization → Open archive after the old room is deleted.';}
+  catch(e){$('restart-status').textContent=e.message;}finally{restartBusy=false;$('restart-download').disabled=false;}
+};
+$('archive-saved').onchange=()=>{$('restart-confirm').disabled=!$('archive-saved').checked||restartRevision===null;};
+async function cancelRestart(){if(restartBusy)return;if(room?.closing){const resumed=await action({action:'resume'});if(!resumed)return;}$('restart-dialog').close();}
+$('restart-cancel').onclick=cancelRestart;$('restart-dialog').addEventListener('cancel',e=>{e.preventDefault();cancelRestart();});
+$('restart-confirm').onclick=async()=>{
+  if(restartBusy||!$('archive-saved').checked||restartRevision===null)return;
+  restartBusy=true;$('restart-confirm').disabled=true;
+  const token=[...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('');const code='N'+crypto.randomUUID().replaceAll('-','').slice(0,9).toUpperCase();
+  const next={code,token};try{localStorage.setItem('poetry-pending-restart',JSON.stringify(next));}catch{}
+  try{
+    let result;try{result=await request(`rooms/${session.code}/restart`,{method:'POST',body:{code,token,revision:restartRevision}});}catch(error){try{result=await request(`rooms/${code}`,{token});}catch{throw error;}}
+    try{localStorage.removeItem('poetry-pending-restart');}catch{}
+    showRoom(result,token);lab.reset();history.replaceState(null,'',`/workshop?room=${code}`);$('restart-dialog').close();message('New room ready. Copy its link to invite participants.');
+  }catch(e){$('restart-status').textContent=e.message;}finally{restartBusy=false;$('restart-confirm').disabled=false;}
+};
+$('invite').onclick=async()=>{const url=new URL('/workshop',location.origin);url.searchParams.set('room',session.code);try{await navigator.clipboard.writeText(url.href);message('Link copied.');}catch{message(url.href);}};
+function leaveRoom(){session=null;room=null;collectionId=null;isHost=false;lab.reset();try{localStorage.removeItem(storageKey);}catch{}document.querySelector('main').hidden=true;document.querySelector('header').hidden=true;$('entry').hidden=false;}
+$('leave').onclick=leaveRoom;
+const lab=setupHtmlLab(({text,page,url})=>{filter='all';search='';$('word-search').value='';return action({action:'import',method:'html',text,page,url});},url=>request(`rooms/${session.code}/fetch-page`,{method:'POST',body:{url}}),url=>request(`rooms/${session.code}/fetch-style`,{method:'POST',body:{url}}));
 document.querySelector('header').hidden=true;
 const invited=new URL(location.href).searchParams.get('room');if(invited)$('code').value=invited.toUpperCase();
-try{const saved=JSON.parse(localStorage.getItem(storageKey));if(saved&&(!invited||saved.code===invited.toUpperCase())){session=saved;const result=await request(`rooms/${saved.code}`);showRoom(result,saved.token);}}catch{session=null;}
-setInterval(sync,2000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync();});
+try{const recovery=JSON.parse(localStorage.getItem('poetry-pending-restart'));if(recovery){try{const result=await request(`rooms/${recovery.code}`,{token:recovery.token});showRoom(result,recovery.token);history.replaceState(null,'',`/workshop?room=${recovery.code}`);localStorage.removeItem('poetry-pending-restart');}catch{}}}catch{}
+try{const saved=!session&&JSON.parse(localStorage.getItem(storageKey));if(saved&&(!invited||saved.code===invited.toUpperCase())){session=saved;const result=await request(`rooms/${saved.code}`);showRoom(result,saved.token);}}catch{session=null;}
+setInterval(sync,3000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync();});

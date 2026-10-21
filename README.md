@@ -1,8 +1,8 @@
 # Data-Scrap-Poetry on Render
 
-This release serves the workshop and public gallery from a separate Render web
+This release serves the workshop and host visualization from a separate Render web
 service. It keeps the existing workshop API and D1 database as its backend, so
-published galleries and saved rooms remain in the same database. This is a new
+saved rooms remain in the same database. This is a new
 public address, not a database migration or a fully independent backend.
 
 ## Deploy
@@ -26,12 +26,12 @@ the fixed workshop API. Browser cookies are never forwarded.
 ## Addresses
 
 - Workshop: `/workshop`
-- Public view: `/space?gallery=<existing-gallery-id>`
+- Host visualization: `/space?room=<room-code>`
+- Saved visualization file: `/space?archive`
 
 Use the new site's **Copy link** button to share links under the new hostname.
 Participant sessions are browser-origin-specific: a session on the old address
-does not automatically sign in on the new one. Existing public gallery IDs work
-on both addresses. The original workshop remains available for existing editing
+does not automatically sign in on the new one. Existing gallery IDs require the room creator’s session on the address being used. The original workshop remains available for existing editing
 sessions; use new rooms on Render unless session migration is arranged.
 
 ## Local check
@@ -45,3 +45,7 @@ database, restarting this Render service does not erase poems or shared words.
 
 The screenshot exporter uses html-to-image 1.11.13 (MIT); its license is included
 in `public/vendor/html-to-image.LICENSE`.
+
+## Ten-person workshops
+
+Ten people (including the creator) can join. Extracted text allows 100,000 characters per import. Only the creator sees Visualization and its downloads. **Download & new room** freezes edits, downloads a visualization archive, and after save confirmation deletes that room’s working data and captures before creating an empty room. Other rooms stay intact. Use **Open archive** to reopen downloaded JSON locally; it contains source layouts and poem paths, not participant credentials. External image/font URLs remain external.

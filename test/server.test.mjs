@@ -32,7 +32,7 @@ test('participant auth, request and response survive the fixed backend proxy', a
 test('cross-origin, oversized and unsupported mutations never reach the backend', async t => {
   const base = await serverFor(t, {fetcher:() => {throw Error('Must not be called');}});
   assert.equal((await fetch(base+'/api/rooms',{method:'POST',headers:{Origin:'https://unrelated.example'},body:'{}'})).status,403);
-  assert.equal((await fetch(base+'/api/rooms',{method:'POST',body:'x'.repeat(1500001)})).status,413);
+  assert.equal((await fetch(base+'/api/rooms',{method:'POST',body:'x'.repeat(2000001)})).status,413);
   assert.equal((await fetch(base+'/api/rooms',{method:'DELETE'})).status,405);
 });
 test('backend failures are recoverable and do not expose an upstream login page', async t => {
