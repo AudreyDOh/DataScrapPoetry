@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import {workshopServer} from '../server.mjs';
 
 async function serverFor(t, options) {
-  const server = workshopServer(options);
+  const server = workshopServer({
+    apiOrigin:'https://data-scrap-poetry.super-giant-1444.chatgpt.site',
+    externalOrigin:null,
+    ...options,
+  });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => {server.closeAllConnections(); server.close(resolve);}));
   return `http://127.0.0.1:${server.address().port}`;
@@ -36,4 +40,15 @@ test('backend failures are recoverable and do not expose an upstream login page'
   const result = await fetch(base+'/api/rooms/TEST12');
   assert.equal(result.status,502); assert.match((await result.json()).error,/retry/);
   assert.equal((await fetch(base+'/healthz')).status,200);
+});
+test('deployed requests accept the Render origin and reject local or foreign origins', async t => {
+  let calls = 0;
+  const origin = 'https://datascrappoetry.onrender.com';
+  const base = await serverFor(t, {externalOrigin:origin, fetcher:async () => {
+    calls++; return Response.json({ok:true});
+  }});
+  assert.equal((await fetch(base+'/api/rooms',{method:'POST',headers:{Origin:origin},body:'{}'})).status,200);
+  assert.equal((await fetch(base+'/api/rooms',{method:'POST',headers:{Origin:base},body:'{}'})).status,403);
+  assert.equal((await fetch(base+'/api/rooms',{method:'POST',headers:{Origin:'https://foreign.example'},body:'{}'})).status,403);
+  assert.equal(calls,1);
 });
