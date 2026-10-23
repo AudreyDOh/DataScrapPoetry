@@ -31,13 +31,15 @@ $('refresh').onclick=async()=>{try{await rooms();if(current)await selectRoom(cur
 $('more').onclick=()=>rooms(true).catch(e=>status(e.message));
 $('find-room').onsubmit=e=>{e.preventDefault();selectRoom($('room-code').value.trim().toUpperCase());};
 $('download').onclick=async()=>{if(busy||!current)return;busy=true;try{await exportRoom();status('Visualization downloaded.');}catch(e){status(e.message);}finally{busy=false;}};
-$('delete').onclick=()=>{if(busy||!current)return;backupRevision=null;$('backup-saved').checked=false;$('backup-saved').disabled=true;$('confirm-code').value='';$('delete-code').textContent=current.code;$('delete-status').textContent='';$('confirm-delete').disabled=true;$('delete-dialog').showModal();};
-function updateDelete(){$('confirm-delete').disabled=busy||backupRevision===null||!$('backup-saved').checked||$('confirm-code').value!==current?.code;}
-$('backup-saved').onchange=updateDelete;$('confirm-code').oninput=updateDelete;
+$('delete').onclick=()=>{if(busy||!current)return;backupRevision=null;$('skip-backup').checked=false;$('backup-saved').checked=false;$('backup-saved').disabled=true;$('confirm-code').value='';$('delete-code').textContent=current.code;$('delete-status').textContent='';$('confirm-delete').disabled=true;$('delete-dialog').showModal();};
+function canDelete(){return !busy&&current&&Number.isSafeInteger(current.revision)&&($('skip-backup').checked||(backupRevision!==null&&$('backup-saved').checked))&&$('confirm-code').value===current.code;}
+function updateDelete(){$('confirm-delete').disabled=!canDelete();}
+$('skip-backup').onchange=updateDelete;$('backup-saved').onchange=updateDelete;$('confirm-code').oninput=updateDelete;
 $('backup').onclick=async()=>{if(busy)return;busy=true;$('backup').disabled=true;try{const archive=await exportRoom();backupRevision=archive.revision;$('backup-saved').disabled=false;$('delete-status').textContent='Save the file before continuing.';}catch(e){$('delete-status').textContent=e.message;}finally{busy=false;$('backup').disabled=false;updateDelete();}};
 $('cancel-delete').onclick=()=>{if(!busy)$('delete-dialog').close();};$('delete-dialog').addEventListener('cancel',e=>{if(busy)e.preventDefault();});
 $('confirm-delete').onclick=async()=>{
-  if(busy||backupRevision===null||!$('backup-saved').checked||$('confirm-code').value!==current?.code)return;
-  busy=true;updateDelete();try{const code=current.code;await request('rooms/'+code+'/delete',{body:{revision:backupRevision,confirmation:$('confirm-code').value}});current=null;$('room').hidden=true;$('empty').hidden=false;$('participants').replaceChildren();$('delete-dialog').close();history.replaceState(null,'','/facilitator');await rooms();status('Room '+code+' deleted. Other rooms were kept.');}catch(e){backupRevision=null;$('backup-saved').checked=false;$('backup-saved').disabled=true;$('delete-status').textContent=e.message;}finally{busy=false;updateDelete();}
+  if(!canDelete())return;
+  const revision=$('skip-backup').checked?(backupRevision??current.revision):backupRevision;
+  busy=true;updateDelete();try{const code=current.code;await request('rooms/'+code+'/delete',{body:{revision,confirmation:$('confirm-code').value}});current=null;$('room').hidden=true;$('empty').hidden=false;$('participants').replaceChildren();$('delete-dialog').close();history.replaceState(null,'','/facilitator');await rooms();status('Room '+code+' deleted. Other rooms were kept.');}catch(e){backupRevision=null;$('skip-backup').checked=false;$('backup-saved').checked=false;$('backup-saved').disabled=true;$('delete-status').textContent=e.message;}finally{busy=false;updateDelete();}
 };
 if(key)await open();
