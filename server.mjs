@@ -4,7 +4,7 @@ import {resolve, sep, extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const publicDir = fileURLToPath(new URL('./public/', import.meta.url));
-const defaultApi = 'https://data-scrap-poetry.super-giant-1444.chatgpt.site';
+const defaultApi = 'https://data-scrap-poetry.amazingsriracha.chatgpt.site';
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.ico':'image/x-icon'};
 const maxBody = 2000000;
 function json(res, status, value) {res.writeHead(status, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); res.end(JSON.stringify(value));}

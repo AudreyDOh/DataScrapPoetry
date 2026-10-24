@@ -16,7 +16,7 @@ Do not replace or suspend DayTrader.
 - Build command: `npm test`
 - Start command: `npm start`
 - Health check: `/healthz`
-- Environment: `WORKSHOP_API_ORIGIN=https://data-scrap-poetry.super-giant-1444.chatgpt.site`
+- Environment: `WORKSHOP_API_ORIGIN=https://data-scrap-poetry.amazingsriracha.chatgpt.site`
 
 `render.yaml` provides the same settings for a Blueprint deployment. Render
 supplies `PORT` and `RENDER_EXTERNAL_URL`. No database password or admin token is

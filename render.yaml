@@ -10,4 +10,4 @@ services:
       - key: NODE_VERSION
         value: 22.16.0
       - key: WORKSHOP_API_ORIGIN
-        value: https://data-scrap-poetry.super-giant-1444.chatgpt.site
+        value: https://data-scrap-poetry.amazingsriracha.chatgpt.site

@@ -4,7 +4,7 @@ import {workshopServer} from '../server.mjs';
 
 async function serverFor(t, options) {
   const server = workshopServer({
-    apiOrigin:'https://data-scrap-poetry.super-giant-1444.chatgpt.site',
+    apiOrigin:'https://data-scrap-poetry.amazingsriracha.chatgpt.site',
     externalOrigin:null,
     ...options,
   });
@@ -19,9 +19,9 @@ test('both pages and their modules are served; nonpublic files are not', async t
 });
 test('participant auth, request and response survive the fixed backend proxy', async t => {
   const base = await serverFor(t, {fetcher:async (url, options) => {
-    assert.equal(url, 'https://data-scrap-poetry.super-giant-1444.chatgpt.site/api/rooms/TEST12/actions');
+    assert.equal(url, 'https://data-scrap-poetry.amazingsriracha.chatgpt.site/api/rooms/TEST12/actions');
     assert.equal(options.headers.Authorization, 'Bearer participant-token');
-    assert.equal(options.headers.Origin, 'https://data-scrap-poetry.super-giant-1444.chatgpt.site');
+    assert.equal(options.headers.Origin, 'https://data-scrap-poetry.amazingsriracha.chatgpt.site');
     assert.equal(options.headers.Cookie, undefined);
     assert.equal(options.body.toString(), '{"type":"share"}');
     return Response.json({saved:true}, {status:201});
