@@ -1,4 +1,5 @@
-import {readAccess} from '../facilitator-access.js';
+import {readAccess,rememberAccess} from '../facilitator-access.js';
+import {loadManagedView} from './managed-access.js';
 import {readArchive} from './archive.js';
 import * as THREE from '../../vendor/three/three.module.js';
 import {CSS3DRenderer,CSS3DObject} from '../../vendor/three/CSS3DRenderer.js';
@@ -13,7 +14,11 @@ const panels=[],snapshots=new Map(),bySource=new Map(),world=new RopeWorld({damp
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.05,250);
 let renderer,css,controls,raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),radius=5;
 function toast(text){$('toast').textContent=text;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2500);}
-async function get(url){const r=await fetch(url,{headers:auth});const value=await r.json();if(!r.ok)throw new Error(value.error||'Could not load this view.');return value;}
+async function get(url,headers=auth){const r=await fetch(url,{headers});const value=await r.json();if(!r.ok)throw Object.assign(new Error(value.error||'Could not load this view.'),{status:r.status});return value;}
+function requestFacilitatorKey(message){
+  $('loading').hidden=true;$('facilitator-unlock').hidden=false;$('facilitator-error').textContent=message;$('facilitator-key').value='';$('facilitator-key').focus();
+  return new Promise(resolve=>{$('facilitator-unlock').onsubmit=event=>{event.preventDefault();const key=$('facilitator-key').value.trim();if(!/^[a-f0-9]{64}$/.test(key)){$('facilitator-error').textContent='Enter your 64-character facilitator access key.';return;}$('facilitator-key').value='';$('facilitator-unlock').hidden=true;$('loading').hidden=false;$('loading').textContent='Loading pages…';resolve(key);};});
+}
 function worldPoint(panel,word){const p=panel.sheet.anchors.get(word.start);if(!p)return null;return new THREE.Vector3((p.x-panel.sheet.width/2)*panel.scale,(panel.sheet.height/2-p.y)*panel.scale,.07).applyQuaternion(panel.quaternion).add(panel.position);}
 function endpointAt(word){const panel=bySource.get(word.sourceId);if(!panel||!panel.sheet.anchors.has(word.start))return null;return ()=>worldPoint(panel,word);}
 function initialLayout(){
@@ -76,7 +81,7 @@ async function init(){
   }
   else if(params.has('demo')){data=await get('/examples/space.json');endpoint=null;$('view-kind').textContent='Sample pages';}
   else if(gallery){let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(session?.token)auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/galleries/${encodeURIComponent(gallery)}`;data=await get(endpoint);$('view-kind').textContent='Host visualization';}
-  else if(params.has('managed')){const key=readAccess();if(!key)throw new Error('Open this visualization from your facilitator page.');auth={Authorization:`Bearer ${key}`};endpoint=`/api/facilitator/rooms/${encodeURIComponent(params.get('managed'))}/view`;data=await get(endpoint);$('view-kind').textContent='Room '+params.get('managed');$('workshop-link').href='/facilitator?room='+encodeURIComponent(params.get('managed'));$('workshop-link').textContent='Facilitator';$('copy-view').hidden=true;}
+  else if(params.has('managed')){const code=params.get('managed');$('view-kind').textContent='Room '+code;$('workshop-link').href='/facilitator?room='+encodeURIComponent(code);$('workshop-link').textContent='Facilitator';$('copy-view').hidden=true;({data,endpoint,auth}=await loadManagedView(code,{key:readAccess(),requestKey:requestFacilitatorKey,fetchView:get,saveKey:rememberAccess}));}
   else {let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(!session||room&&session.code!==room)throw new Error('Open Visualization from the room creator’s workshop, or choose Open archive.');auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/rooms/${session.code}/view`;data=await get(endpoint);$('view-kind').textContent='Host visualization';$('copy-view').hidden=true;}
   if(!data.sources.length)throw new Error('Import HTML in the workshop to add your first page.');
   renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0x000000,0);$('stage').append(renderer.domElement);renderer.domElement.setAttribute('aria-label','3D pages. Drag pages to move them, drag empty space to orbit.');

@@ -5,3 +5,5 @@
 body,button,select{font-family:'Zen Kaku Gothic New',sans-serif;letter-spacing:0}header>a{letter-spacing:0;font-size:13px}#view-kind,footer,#page-list button{font-size:12px;line-height:1.35}
 
 #archive-picker{position:fixed;z-index:20;left:50%;top:40%;transform:translate(-50%,-50%);max-width:90vw;padding:24px;background:#151a1c;border:1px solid #ffffff40;color:#fff}#archive-picker input{display:block;margin-top:20px}#archive-error{color:#e89187}#open-archive{font-size:12px;color:inherit;padding:6px 10px}
+
+#facilitator-unlock{position:fixed;z-index:20;left:50%;top:40%;transform:translate(-50%,-50%);width:min(400px,90vw);padding:24px;background:#151a1c;border:1px solid #ffffff40;display:grid;gap:14px}#facilitator-key{font:inherit;width:100%;color:inherit;background:#090b0c;border:1px solid #ffffff40;padding:10px}#facilitator-key:focus-visible{outline:1px solid var(--red);outline-offset:2px}#facilitator-error{margin:0;color:#e89187}#facilitator-error:empty{display:none}

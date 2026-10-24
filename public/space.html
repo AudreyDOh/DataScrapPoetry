@@ -4,6 +4,7 @@
 <div id="stage" aria-label="Interactive pages and threads"></div>
 <header><a href="/workshop" id="workshop-link">Collab / Data Scrap Poetry</a><span id="view-kind"></span><nav><button id="reset">Reset circle</button><button id="screenshot" disabled>Screenshot</button><a href="/space?archive" id="open-archive">Open archive</a><button id="copy-view" hidden>Copy link</button></nav></header>
 <div id="archive-picker" hidden><label>Open visualization file<input id="archive-file" type="file" accept=".json,application/json"></label><p id="archive-error" role="alert"></p></div><div id="loading" role="status">Loading pages…</div>
+<form id="facilitator-unlock" hidden><label for="facilitator-key">Access key</label><input id="facilitator-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required><button type="submit">Open visualization</button><p id="facilitator-error" role="alert"></p></form>
 <div id="page-list" aria-label="Pages"></div>
 <div id="selection" hidden><span id="selection-name"></span><button id="read">Read poem</button><button id="trace">Trace poem</button><button id="clear-selection" aria-label="Clear selection">×</button></div>
 <footer><span>Drag a page · Drag space to orbit · Scroll to zoom · Double-click to read</span><span id="counts"></span></footer>
