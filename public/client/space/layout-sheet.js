@@ -1,4 +1,5 @@
 import {validateLayout} from '../page-model.js';
+import {inBatches} from './loading.js';
 const words=/[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}]+)*/gu;
 const fontsLoaded=new Map();
 export async function buildLayoutSheet(source,input,steps=[]){
@@ -12,7 +13,7 @@ export async function buildLayoutSheet(source,input,steps=[]){
     const font=new FontFace(face.family,face.urls.map(url=>`url(${JSON.stringify(url)})`).join(','),{weight:face.weight,style:face.style,unicodeRange:face.unicodeRange});document.fonts.add(font);fontsLoaded.set(key,font.load().catch(()=>null));}return fontsLoaded.get(key);});
   await Promise.race([Promise.all(fontPromises),new Promise(resolve=>setTimeout(resolve,3500))]);
   const anchors=new Map(),spans=new Map(),fitted=[];
-  for(const item of snapshot.items){
+  await inBatches(snapshot.items,item=>{
     const el=document.createElement(item.type==='image'?'img':'span');
     Object.assign(el.style,{left:`${item.x}px`,top:`${item.y}px`});
     if(item.type==='image'){
@@ -23,12 +24,16 @@ export async function buildLayoutSheet(source,input,steps=[]){
       if(item.start!==undefined){el.dataset.start=item.start;anchors.set(item.start,{x:item.x+item.w/2,y:item.y+item.h/2});spans.set(item.start,el);}
     }
     surface.append(el);
-  }
+  });
   const missing=[...source.text.matchAll(words)].filter(m=>!anchors.has(m.index));let extra;
   if(missing.length){extra=document.createElement('div');extra.className='edited';extra.style.top=`${height+24}px`;const label=document.createElement('div');label.className='edited-label';label.textContent='Edited or hidden source words';extra.append(label);let plain='';for(const m of missing){if(!needed.has(m.index)){plain+=m[0]+' ';continue;}if(plain){extra.append(document.createTextNode(plain));plain='';}const el=document.createElement('span');el.className='wv-word';el.textContent=m[0];el.dataset.start=m.index;extra.append(el,' ');spans.set(m.index,el);}if(plain)extra.append(document.createTextNode(plain));surface.append(extra);}
   document.getElementById('measure').append(host);
   // Font fallback cannot shift the recorded word endpoints or neighbouring words.
-  for(const [el,item] of fitted){const actual=el.getBoundingClientRect().width;if(actual>0)el.style.transform=`scaleX(${item.w/actual})`;}
+  // Read every width before writing transforms. Interleaved reads/writes force
+  // the browser to recalculate style for every single word on a large page.
+  const widths=new Array(fitted.length);
+  await inBatches(fitted,([el],i)=>{widths[i]=el.getBoundingClientRect().width;});
+  await inBatches(fitted,([el,item],i)=>{if(widths[i]>0)el.style.transform=`scaleX(${item.w/widths[i]})`;});
   if(extra){const base=surface.getBoundingClientRect();height+=Math.ceil(extra.getBoundingClientRect().height)+60;for(const m of missing){if(!spans.has(m.index))continue;const b=spans.get(m.index).getBoundingClientRect();anchors.set(m.index,{x:b.x-base.x+b.width/2,y:b.y-base.y+b.height/2});}}
   surface.style.height=`${height}px`;host.style.height=`${height}px`;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('paths');svg.setAttribute('viewBox',`0 0 ${width} ${height}`);surface.append(svg);
