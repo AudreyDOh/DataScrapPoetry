@@ -1,4 +1,5 @@
 import {readAccess,rememberAccess,forgetAccess,accessLink} from './facilitator-access.js';
+import {setupEntryEditor} from './facilitator-editor.js';
 const $=id=>document.getElementById(id);
 let key=readAccess(),current=null,next=null,backupRevision=null,busy=false,selectionRequest=0;
 const initialRoom=new URLSearchParams(location.search).get('room');
@@ -16,7 +17,8 @@ function renderRoom(){
   $('visualize').href='/space?managed='+current.code;
   for(const b of $('rooms').children)b.setAttribute('aria-pressed',String(b.dataset.code===current.code));
   $('participants').replaceChildren(...current.data.poems.map(p=>{
-    const card=document.createElement('article');card.className='person';const heading=document.createElement('h3');heading.textContent=p.name;card.append(heading);
+    const card=document.createElement('article');card.className='person';const heading=document.createElement('h3');heading.textContent=p.name;
+    const top=document.createElement('div');top.className='person-heading';const edit=document.createElement('button');edit.textContent='Edit entry';edit.onclick=()=>editor.openEntry(p);top.append(heading,edit);card.append(top);
     const poem=document.createElement('div');poem.className='poem';
     if(!p.lines.flat().length)poem.textContent='No poem yet.';
     else for(const line of p.lines){const row=document.createElement('div');if(!line.length)row.append('\u00a0');for(const w of line){const word=document.createElement('span');word.textContent=w.text+' ';if(w.borrowed){word.className='borrowed';word.title='From '+(current.data.sources.find(s=>s.id===w.sourceId)?.name||'another participant');}row.append(word);}poem.append(row);}card.append(poem);
@@ -42,4 +44,5 @@ $('confirm-delete').onclick=async()=>{
   const revision=$('skip-backup').checked?(backupRevision??current.revision):backupRevision;
   busy=true;updateDelete();try{const code=current.code;await request('rooms/'+code+'/delete',{body:{revision,confirmation:$('confirm-code').value}});current=null;$('room').hidden=true;$('empty').hidden=false;$('participants').replaceChildren();$('delete-dialog').close();history.replaceState(null,'','/facilitator');await rooms();status('Room '+code+' deleted. Other rooms were kept.');}catch(e){backupRevision=null;$('skip-backup').checked=false;$('backup-saved').checked=false;$('backup-saved').disabled=true;$('delete-status').textContent=e.message;}finally{busy=false;updateDelete();}
 };
+const editor=setupEntryEditor({request,getCurrent:()=>current,refresh:async code=>{const value=await request('rooms/'+code);if(current?.code===code){current=value;renderRoom();await rooms();}},status});
 if(key)await open();

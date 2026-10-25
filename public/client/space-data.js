@@ -5,7 +5,7 @@ export function galleryData(room) {
   const names=new Map(room.participants.map(p=>[p.id,p.name]));
   const sources=room.sources.map(s=>({id:s.id,pageId:s.pageId||null,url:s.url||null,name:names.get(s.ownerId)||'Participant',text:s.text}));
   const poems=room.poems.map(p=>({id:p.id,name:names.get(p.authorId)||'Participant',sourceIds:room.sources.filter(s=>s.ownerId===p.authorId).map(s=>s.id),lines:p.lines.map(line=>line.flatMap(id=>{
-    const b=blocks.get(id);return b?[{text:b.text,sourceId:b.sourceId,start:b.start,borrowed:Boolean(b.receivedOfferId)}]:[];
+    const b=blocks.get(id);return b?[{text:b.text,sourceId:b.sourceId,start:b.start,borrowed:Boolean(b.receivedOfferId),...(!b.sourceId?{unlinked:true}:{})}]:[];
   }))}));
   return {version:1,sources,poems};
 }

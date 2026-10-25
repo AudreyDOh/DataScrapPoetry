@@ -10,8 +10,9 @@ export function readArchive(value){
   const poems=value.data.poems.map(p=>{
     if(!Array.isArray(p.lines)||p.lines.length>6||!p.lines.every(Array.isArray)||p.lines.flat().length>120)throw new Error('Invalid archive poem.');
     return {id:String(p.id).slice(0,80),name:String(p.name||'Participant').slice(0,40),sourceIds:(Array.isArray(p.sourceIds)?p.sourceIds:[]).filter(id=>ids.has(id)),lines:p.lines.map(line=>line.map(w=>{
-      if(!ids.has(w.sourceId)||typeof w.text!=='string'||w.text.length>1000||!Number.isInteger(w.start)||w.start<0)throw new Error('Invalid archive word.');
-      return {sourceId:w.sourceId,text:w.text,start:w.start,borrowed:Boolean(w.borrowed)};
+      const unlinked=w.sourceId===null&&w.unlinked===true;
+      if((!unlinked&&!ids.has(w.sourceId))||typeof w.text!=='string'||w.text.length>1000||!Number.isInteger(w.start)||w.start<0)throw new Error('Invalid archive word.');
+      return {sourceId:w.sourceId,text:w.text,start:w.start,borrowed:Boolean(w.borrowed),...(unlinked?{unlinked:true}:{})};
     }))};
   });
   const pages={};for(const source of sources)if(value.pages?.[source.id])pages[source.id]=validatePage(value.pages[source.id]);
