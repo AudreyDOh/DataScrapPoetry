@@ -2,17 +2,22 @@ import {captureLayout} from './capture-layout.js';
 
 export function setupEntryEditor({request,getCurrent,refresh,status}){
   const $=id=>document.getElementById(id);
-  let entry=null,source=null,clearing=null,busy=false;
-  const dialogs=['entry-dialog','source-dialog','clear-work-dialog'];
+  let entry=null,source=null,clearing=null,keeping=null,busy=false;
+  const dialogs=['entry-dialog','source-dialog','clear-work-dialog','keep-source-dialog'];
   function lock(value){busy=value;for(const id of dialogs)for(const el of $(id).querySelectorAll('input,textarea,button'))el.disabled=value;}
   function sourceList(){
     const current=getCurrent();if(!entry||current?.code!==entry.code)return;
     const poem=current.data.poems.find(p=>p.id===entry.id);
-    $('entry-sources').replaceChildren(...current.data.sources.filter(s=>poem?.sourceIds.includes(s.id)).map(s=>{
+    const sources=current.data.sources.filter(s=>poem?.sourceIds.includes(s.id));
+    $('entry-sources').replaceChildren(...sources.map(s=>{
       const row=document.createElement('div');row.className='editable-source';
-      const label=document.createElement('span');label.textContent=s.url||'No source link';
+      const label=document.createElement('div'),link=document.createElement('span'),preview=document.createElement('small');link.textContent=s.url||'No source link';preview.textContent=(s.text||'').replace(/\s+/g,' ').slice(0,160);
+      label.append(link,preview);
+      const actions=document.createElement('div');actions.className='source-actions';
       const button=document.createElement('button');button.type='button';button.textContent='Edit link';button.onclick=()=>openSource(s);
-      row.append(label,button);return row;
+      actions.append(button);
+      if(sources.length>1){const keep=document.createElement('button');keep.type='button';keep.textContent='Keep only this source';keep.onclick=()=>openKeepSource(s,sources);actions.append(keep);}
+      row.append(label,actions);return row;
     }));
   }
   function openEntry(poem){
@@ -27,6 +32,21 @@ export function setupEntryEditor({request,getCurrent,refresh,status}){
     $('edit-source-url').value=value.url||'';$('refresh-source-page').checked=Boolean(value.url);
     $('source-status').textContent='';$('source-dialog').showModal();
   }
+  function openKeepSource(value,sources){
+    if(busy)return;
+    const current=getCurrent();keeping={code:current.code,id:value.id,revision:current.revision};
+    const removed=sources.filter(s=>s.id!==value.id),different=new Set(removed.filter(s=>s.text!==value.text).map(s=>s.id));
+    const unlinked=current.data.poems.flatMap(p=>p.lines.flat()).filter(w=>different.has(w.sourceId)).length;
+    $('keep-source-preview').textContent=value.text;
+    $('keep-source-details').textContent=`Deletes ${removed.length} other source${removed.length===1?'':'s'} for this participant. Identical sources are merged into this page. Poems and shared words are kept.`+(unlinked?` ${unlinked} poem word${unlinked===1?'':'s'} will lose their source-page connection.`:'');
+    $('keep-source-status').textContent='';$('keep-source-dialog').showModal();
+  }
+  $('keep-source-form').onsubmit=async event=>{
+    event.preventDefault();if(busy||!keeping)return;
+    lock(true);$('keep-source-status').textContent='Removing other sources…';
+    try{await request(`rooms/${keeping.code}/sources/${keeping.id}/keep`,{body:{revision:keeping.revision,confirmation:keeping.id}});await updated(keeping.code);$('keep-source-dialog').close();status('One source kept. Reload the visualization to see the changes.');}
+    catch(error){$('keep-source-status').textContent=error.message;}finally{lock(false);}
+  };
   async function updated(code){
     await refresh(code);
     if(entry?.code===code){entry.revision=getCurrent().revision;sourceList();}
@@ -70,7 +90,7 @@ export function setupEntryEditor({request,getCurrent,refresh,status}){
     try{await request(`rooms/${clearing.code}/poems/${clearing.id}/clear`,{body:{revision:clearing.revision,scope,confirmation:clearing.id}});await updated(clearing.code);$('clear-work-dialog').close();$('entry-dialog').close();status('Selected work deleted. Reload the visualization to see the changes.');}
     catch(error){$('clear-work-status').textContent=error.message;}finally{lock(false);}
   };
-  for(const [button,dialog] of [['entry-cancel','entry-dialog'],['source-cancel','source-dialog'],['clear-work-cancel','clear-work-dialog']])$(button).onclick=()=>{if(!busy)$(dialog).close();};
+  for(const [button,dialog] of [['entry-cancel','entry-dialog'],['source-cancel','source-dialog'],['clear-work-cancel','clear-work-dialog'],['keep-source-cancel','keep-source-dialog']])$(button).onclick=()=>{if(!busy)$(dialog).close();};
   for(const id of dialogs)$(id).addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   return {openEntry,close(){if(!busy)for(const id of dialogs)$(id).close();}};
 }
