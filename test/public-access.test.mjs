@@ -79,7 +79,8 @@ test('password attempts are bounded and recover after the short cooldown',async 
  now+=61000;assert.equal((await login(base)).status,200);
 });
 test('a missing server key fails closed and public errors do not reveal upstream details',async t=>{
- const first=await setup(t,{facilitatorKey:undefined});
+ // Null explicitly disables the key; undefined inherits Render's real secret.
+ const first=await setup(t,{facilitatorKey:null});
  assert.equal((await fetch(first.base+'/api/public/rooms/821821/view')).status,503);
  assert.equal((await login(first.base)).status,503);assert.equal(first.calls.length,0);
  const second=await setup(t,{fetcher:async()=>Response.json({error:'secret backend details'},{status:403})});

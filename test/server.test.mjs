@@ -6,6 +6,7 @@ async function serverFor(t, options) {
   const server = workshopServer({
     apiOrigin:'https://data-scrap-poetry.amazingsriracha.chatgpt.site',
     externalOrigin:null,
+    facilitatorKey:null,
     ...options,
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
