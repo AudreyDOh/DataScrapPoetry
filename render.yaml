@@ -11,3 +11,5 @@ services:
         value: 22.16.0
       - key: WORKSHOP_API_ORIGIN
         value: https://data-scrap-poetry.amazingsriracha.chatgpt.site
+      - key: FACILITATOR_API_KEY
+        sync: false

@@ -1,5 +1,3 @@
-import {readAccess,rememberAccess} from '../facilitator-access.js';
-import {loadManagedView} from './managed-access.js';
 import {loadInOrder,yieldToBrowser} from './loading.js';
 import {readArchive} from './archive.js';
 import * as THREE from '../../vendor/three/three.module.js';
@@ -16,9 +14,14 @@ const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.05,250);
 let renderer,css,controls,raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),radius=5;
 function toast(text){$('toast').textContent=text;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2500);}
 async function get(url,headers=auth,signal){const r=await fetch(url,{headers,signal});const value=await r.json();if(!r.ok)throw Object.assign(new Error(value.error||'Could not load this view.'),{status:r.status});return value;}
-function requestFacilitatorKey(message){
-  $('loading').hidden=true;$('facilitator-unlock').hidden=false;$('facilitator-error').textContent=message;$('facilitator-key').value='';$('facilitator-key').focus();
-  return new Promise(resolve=>{$('facilitator-unlock').onsubmit=event=>{event.preventDefault();const key=$('facilitator-key').value.trim();if(!/^[a-f0-9]{64}$/.test(key)){$('facilitator-error').textContent='Enter your 64-character facilitator access key.';return;}$('facilitator-key').value='';$('facilitator-unlock').hidden=true;$('loading').hidden=false;$('loading').textContent='Loading pages…';resolve(key);};});
+function chooseRoom(){
+  $('loading').hidden=true;$('space-room').hidden=false;
+  if(params.has('gallery'))$('room-error').textContent='Enter the room code for this saved visualization.';
+  return new Promise(resolve=>{$('space-room').onsubmit=event=>{
+    event.preventDefault();const code=$('space-room-code').value.trim().toUpperCase();
+    if(!/^[A-Z0-9]{6,10}$/.test(code)){$('room-error').textContent='Use 6–10 letters or numbers.';return;}
+    $('space-room').hidden=true;$('loading').hidden=false;resolve(code);
+  };});
 }
 function worldPoint(panel,word){const p=panel.sheet.anchors.get(word.start);if(!p)return null;return new THREE.Vector3((p.x-panel.sheet.width/2)*panel.scale,(panel.sheet.height/2-p.y)*panel.scale,.07).applyQuaternion(panel.quaternion).add(panel.position);}
 function endpointAt(word){const panel=bySource.get(word.sourceId);if(!panel||!panel.sheet.anchors.has(word.start))return null;return ()=>worldPoint(panel,word);}
@@ -79,17 +82,32 @@ async function screenshot(){
   finally{capturing=false;controls.enabled=wasEnabled;button.disabled=false;button.textContent='Screenshot';resize();}
 }
 async function init(){
-  const gallery=params.get('gallery'),room=params.get('room');
+  const room=params.get('room')||params.get('managed');
   if(params.has('archive')){
     $('loading').hidden=true;$('archive-picker').hidden=false;$('view-kind').textContent='Saved visualization';
     const archive=await new Promise(resolve=>{$('archive-file').onchange=async event=>{try{const file=event.target.files[0];if(!file)return;if(file.size>80000000)throw new Error('File exceeds 80 MB.');const value=readArchive(JSON.parse(await file.text()));resolve(value);}catch(error){$('archive-error').textContent=error.message;event.target.value='';}};});
     data=archive.data;archivePages=archive.pages;endpoint=null;$('archive-picker').hidden=true;$('loading').hidden=false;
   }
   else if(params.has('demo')){data=await get('/examples/space.json');endpoint=null;$('view-kind').textContent='Sample pages';}
-  else if(gallery){let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(session?.token)auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/galleries/${encodeURIComponent(gallery)}`;data=await get(endpoint);$('view-kind').textContent='Host visualization';}
-  else if(params.has('managed')){const code=params.get('managed');$('view-kind').textContent='Room '+code;$('workshop-link').href='/facilitator?room='+encodeURIComponent(code);$('workshop-link').textContent='Facilitator';$('copy-view').hidden=true;({data,endpoint,auth}=await loadManagedView(code,{key:readAccess(),requestKey:requestFacilitatorKey,fetchView:get,saveKey:rememberAccess}));}
-  else {let session;try{session=JSON.parse(localStorage.getItem('poetry-online-session'));}catch{}if(!session||room&&session.code!==room)throw new Error('Open Visualization from the room creator’s workshop, or choose Open archive.');auth={Authorization:`Bearer ${session.token}`};endpoint=`/api/rooms/${session.code}/view`;data=await get(endpoint);$('view-kind').textContent='Host visualization';$('copy-view').hidden=true;}
-  if(!data.sources.length)throw new Error('Import HTML in the workshop to add your first page.');
+  else {
+    const code=room?room.trim().toUpperCase():await chooseRoom();
+    if(!/^[A-Z0-9]{6,10}$/.test(code))throw new Error('Use a room code of 6–10 letters or numbers.');
+    // Old managed links still work, but credentials never belong in public links.
+    history.replaceState(null,'','/space?room='+encodeURIComponent(code));
+    endpoint='/api/public/rooms/'+encodeURIComponent(code)+'/view';
+    data=await get(endpoint,{},AbortSignal.timeout(30000));
+    $('view-kind').textContent='Room '+code;$('copy-view').hidden=false;
+    $('refresh-view').hidden=false;$('refresh-view').onclick=()=>location.reload();
+    let checking=false;
+    setInterval(async()=>{
+      if(!ready||checking||document.hidden)return;checking=true;
+      try{const latest=await get('/api/public/rooms/'+code+'/revision',{},AbortSignal.timeout(20000));
+        if(latest.revision!==data.revision)$('refresh-view').textContent='Updates available · Refresh';
+      }catch(error){if(error.status===404){$('refresh-view').textContent='Room unavailable · Refresh';} }
+      finally{checking=false;}
+    },20000);
+  }
+  if(!data.sources.length)throw new Error('No pages have been saved in this room yet.');
   renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0x000000,0);$('stage').append(renderer.domElement);renderer.domElement.setAttribute('aria-label','3D pages. Drag pages to move them, drag empty space to orbit.');
   css=new CSS3DRenderer();css.setSize(innerWidth,innerHeight);$('stage').prepend(css.domElement);css.domElement.setAttribute('aria-hidden','true');
   controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.075;controls.minDistance=1.2;controls.maxDistance=100;controls.maxPolarAngle=Math.PI*.94;
@@ -130,7 +148,7 @@ async function init(){
   $('read').onclick=()=>selected&&openDetail(selected);$('clear-selection').onclick=clearSelection;
   $('trace').onclick=()=>{if(!selectedPoem)return;tracing={poemId:selectedPoem.id,start:performance.now()};};
   $('detail-close').onclick=()=>$('detail').close();$('detail-source').onchange=()=>renderDetail();$('detail-poem').onchange=()=>renderDetail();
-  $('copy-view').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);toast('Link copied.');}catch{toast(location.href);}};
+  $('copy-view').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname+location.search);toast('Link copied.');}catch{toast(location.origin+location.pathname+location.search);}};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('detail').open)clearSelection();});
 }
 function startAnimation(){

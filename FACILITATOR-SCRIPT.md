@@ -463,11 +463,15 @@ Endpoints stay attached to words. Pages move only when the viewer drags them.
 This is an iterative, finite-resolution simulation: it is not an exact knot solver.
 Very fast motion and dense tangles can still produce contact inaccuracies.
 
-### Showing and saving the work (facilitator only)
+### Showing the work publicly; managing it privately
 
 “Your workshop page is just for collecting, writing and sharing. I use a separate facilitator page to read our saved poems and show the connections.”
 
-Open the private **Facilitator** page. Select the room code to see every participant's current poem and source text. **Refresh** loads the latest saved work. **Open visualization** opens the pages and threads; arranging the pages does not alter anyone's poem.
+Open `/facilitator` and enter your existing Access key as the **Facilitator password**. Select the room code to see every participant's current poem and source text. **Refresh** loads the latest saved work. **Public visualization** opens `/space?room=YOURCODE` without a password. It shows saved names, poems, source text, page layouts and word connections. Arranging the pages changes only that viewer's screen. Participants still use `/workshop?room=YOURCODE` for writing.
+
+“Our visualization is public. Use a display name you are comfortable sharing, and collect text from public pages. The public view can show the entire saved source text, not only the words in your poem.”
+
+The visualization checks for new saved work and shows **Updates available · Refresh**. Refresh when ready: your page arrangement will return to its initial circle. A visitor cannot edit anyone's poem or delete data from this view.
 
 For storage and archiving:
 
@@ -476,7 +480,9 @@ For storage and archiving:
 3. When ready to clear server storage, choose **Delete room**. Download the current archive, confirm that you saved it, and type the room code. Only then press **Delete room**. If someone edited after the download, export again before deleting.
 4. Create a new room on the workshop entry screen when the next workshop begins. Opening a different room never deletes an existing room automatically.
 
-**Save access link** stores the facilitator's private access link. Keep it separate from the participant invitation link; it opens all retained workshop rooms. The portal includes expired rooms whose records have not been deleted. Previously deleted rooms can only be opened from a downloaded archive.
+**Copy link** copies the facilitator address without the password. Enter the same existing Access key when opening it in another browser. The login lasts 12 hours; **Sign out** ends it in that browser. Keep the password private: it manages all rooms. If the session expires during editing, sign in in another tab, then retry saving the open edit.
+
+The portal and public visualization include expired rooms whose records have not been deleted. **Participation closed** means the saved work remains available, but the old room currently cannot accept new participants. Create a separate room for a new workshop. Previously deleted rooms can only be opened from a downloaded archive.
 
 
 ### Importing a website as a transparent page
