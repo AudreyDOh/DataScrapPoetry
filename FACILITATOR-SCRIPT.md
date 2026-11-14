@@ -20,6 +20,27 @@ The online app supports up to 20 participants across laptops and phones. Enter y
 
 Ask: “What kinds of words might a recipe give us? What might a privacy statement give us?” Take a few responses; no need for a long discussion.
 
+## Optional starting points — Source suggestions
+
+Open **Source suggestions** below the webpage link field if someone needs a starting point. Each page title opens the original website in a new tab. **Use URL** only fills the link field; it does not load HTML, import words, or change an existing poem. Participants can then paste their chosen HTML and follow the usual extraction steps. **Load page** remains available as a separate action.
+
+> These pages were written to sell, classify, instruct, or regulate. We are going to use their language for another purpose. We will keep the source visible, while deciding for ourselves how its words can speak.
+>
+> Who was this page originally speaking to, and what did it ask them to do? Using the same words, who would you like to speak to now, and what would you like to say?
+
+The short phrases beside each suggestion are prompts for reading, not the source institutions' own categories. These are optional starting points, not a required reading list:
+
+- [Microsoft Privacy Statement](https://www.microsoft.com/en-us/privacy/privacystatement): data, consent, control.
+- [Amazon Leadership Principles](https://www.aboutamazon.com/about-us/leadership-principles): ownership, ambition, obedience.
+- [McMaster-Carr: Cable Ties](https://www.mcmaster.com/products/cable-ties/): holding, binding, releasing.
+- [Google Advertising Policies](https://support.google.com/adspolicy/answer/16700849?hl=en): relationships, classification. This policy restricts personalized advertising involving relationship hardships.
+- [Government Contract Termination](https://www.acquisition.gov/far/52.249-2): obligations, endings.
+- [FDA Food Defect Handbook](https://www.fda.gov/food/current-good-manufacturing-practices-cgmps-food-and-dietary-supplements/food-defect-levels-handbook): fragments, contamination, limits.
+- [Berkshire Hathaway Owner's Manual](https://www.berkshirehathaway.com/owners.html): ownership, trust, value.
+- [Airport Rules for Cremated Remains](https://www.catsa-acsta.gc.ca/en/cremated-remains): loss, distance, containment. Offer this as an optional source for participants comfortable working with grief.
+
+Choose a short section rather than an entire policy. Try the chosen HTML excerpts before the workshop: retail sites may load text with JavaScript or block automated downloads, and tables may need **Other text** selected. Prepare usable HTML excerpts as a fallback. Choosing a source is not an import; the existing **Import words** action keeps its existing behavior of replacing the participant's current collection.
+
 ## Look inside a webpage — about 10–15 minutes
 
 Point to the HTML source.
