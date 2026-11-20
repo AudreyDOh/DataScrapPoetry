@@ -4,6 +4,7 @@ import {resolve, sep, extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {facilitatorAuth} from './lib/facilitator-auth.mjs';
 import {publicCache,publicView} from './lib/public-view.mjs';
+import {localWorkshop} from './lib/local-workshop.mjs';
 
 const publicDir = fileURLToPath(new URL('./public/', import.meta.url));
 const defaultApi = 'https://data-scrap-poetry.amazingsriracha.chatgpt.site';
@@ -15,6 +16,7 @@ export function workshopServer({apiOrigin=process.env.WORKSHOP_API_ORIGIN || def
   const upstream = new URL(apiOrigin);
   if (upstream.protocol !== 'https:' || upstream.username || upstream.password || upstream.pathname !== '/' || upstream.search || upstream.hash) throw new Error('WORKSHOP_API_ORIGIN must be an https origin.');
   const auth=facilitatorAuth(facilitatorKey,{now}),cache=publicCache({now}),failures=new Map();
+  const local=localWorkshop({file:process.env.WORKSHOP_LOCAL_DATA_FILE||'/tmp/data-scrap-poetry-rooms.json',facilitatorKey});
   let activePublic=0;
   async function viewRead(path){
     if(activePublic>=8)throw Object.assign(new Error('Please retry in a moment.'),{status:429});
@@ -41,6 +43,7 @@ export function workshopServer({apiOrigin=process.env.WORKSHOP_API_ORIGIN || def
         if(!match||(match[2]==='revision'&&match[3]))return json(res,404,{error:'Not found.'});
         const [,code,kind,sourceId]=match;
         const body=await cache.get(code,async()=>{
+          if(await local.owns(code))return {...publicView(await local.publicData(code)),revision:Date.now()};
           const value=await viewRead('rooms/'+code);
           return {...publicView(value.data),revision:value.revision};
         });
@@ -49,7 +52,7 @@ export function workshopServer({apiOrigin=process.env.WORKSHOP_API_ORIGIN || def
         let result=body;
         if(sourceId){
           if(!data.sources.some(s=>s.id===sourceId))return json(res,404,{error:'Page not found.'});
-          result=await cache.get(code+'/'+data.revision+'/'+sourceId,()=>viewRead(`rooms/${code}/view/pages/${sourceId}`),60000);
+          result=await cache.get(code+'/'+data.revision+'/'+sourceId,async()=>await (await local.owns(code)?local.publicPage(code,sourceId):viewRead(`rooms/${code}/view/pages/${sourceId}`)),60000);
         }
         res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Content-Length':result.length});return res.end(result);
       }
@@ -93,6 +96,15 @@ export function workshopServer({apiOrigin=process.env.WORKSHOP_API_ORIGIN || def
         const cookieSession=managed&&auth.session(req);
         const bearer=req.headers.authorization?.replace(/^Bearer /,'')||'';
         if(managed&&auth.configured&&!cookieSession&&!auth.passwordMatches(bearer))return json(res,401,{error:'Sign in with your facilitator password.'});
+        let input=null;
+        if(req.method==='POST'&&chunks.length){try{input=JSON.parse(Buffer.concat(chunks));}catch{return json(res,400,{error:'Invalid request.'});}}
+        if(url.pathname==='/api/facilitator/restore'){
+          if(req.method!=='POST')return json(res,405,{error:'Method not allowed.'});
+          if(!auth.configured||(!cookieSession&&!auth.passwordMatches(bearer)))return json(res,401,{error:'Sign in with your facilitator password.'});
+          const restored=await local.restore(input?.snapshot);cache.clear();return json(res,201,restored);
+        }
+        const localResult=await local.route({method:req.method,path:url.pathname,query:url.searchParams,token:req.headers.authorization?.replace(/^Bearer /,'')||'',input});
+        if(localResult){if(req.method==='POST')cache.clear();return json(res,localResult.status,localResult.body);}
         // Only the exact public read routes above can use the server credential
         // without authentication. Cookies are never sent to the upstream server.
         const headers = {Accept:'application/json', Origin:upstream.origin};
